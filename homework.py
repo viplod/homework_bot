@@ -16,8 +16,9 @@ logging.basicConfig(
     format='%(asctime)s, %(levelname)s, %(message)s'
 )
 
+logger = logging.getLogger(__name__)
 handler = StreamHandler('my_logger.log', maxBytes=50000000, backupCount=5)
-logging.addHandler(handler)
+logger.addHandler(handler)
 
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
@@ -39,7 +40,7 @@ HOMEWORK_STATUSES = {
 def send_message(bot, message):
     """Отправка сообщения."""
     bot.send_message(TELEGRAM_CHAT_ID, message)
-    logging.info('Сообщение отправлено в Telegram')
+    logger.info('Сообщение отправлено в Telegram')
 
 
 def get_api_answer(current_timestamp):
@@ -56,21 +57,21 @@ def get_api_answer(current_timestamp):
 def check_response(response):
     """Проверка ответа сервера."""
     if not response:
-        logging.error('Отсутствие ожидаемых ключей в ответе API')
+        logger.error('Отсутствие ожидаемых ключей в ответе API')
         raise ValueError
     if isinstance(response, dict):
         homework = response.get('homeworks')
     else:
-        logging.error('Отсутствие ожидаемых ключей в ответе API')
+        logger.error('Отсутствие ожидаемых ключей в ответе API')
         raise TypeError
     if isinstance(homework, list):
         if response.get('homeworks') is not None:
             return response.get('homeworks')
         else:
-            logging.error('Отсутствие ожидаемых ключей в ответе API')
+            logger.error('Отсутствие ожидаемых ключей в ответе API')
             raise KeyError
     else:
-        logging.error('Отсутствие ожидаемых ключей в ответе API')
+        logger.error('Отсутствие ожидаемых ключей в ответе API')
         raise TypeError
 
 
@@ -88,15 +89,15 @@ def parse_status(homework):
 def check_tokens():
     """Проверка наличия токенов."""
     if PRACTICUM_TOKEN is None:
-        logging.critical('Отсутствует обязательная переменная окружения:'
+        logger.critical('Отсутствует обязательная переменная окружения:'
                          '"PRACTICUM_TOKEN"'
                          'Программа принудительно остановлена.')
     if TELEGRAM_TOKEN is None:
-        logging.critical('Отсутствует обязательная переменная окружения:'
+        logger.critical('Отсутствует обязательная переменная окружения:'
                          '"TELEGRAM_TOKEN"'
                          'Программа принудительно остановлена.')
     if TELEGRAM_CHAT_ID is None:
-        logging.critical('Отсутствует обязательная переменная окружения:'
+        logger.critical('Отсутствует обязательная переменная окружения:'
                          '"TELEGRAM_CHAT_ID"'
                          'Программа принудительно остановлена.')
     return PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID
