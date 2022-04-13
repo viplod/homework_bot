@@ -90,16 +90,16 @@ def check_tokens():
     """Проверка наличия токенов."""
     if PRACTICUM_TOKEN is None:
         logger.critical('Отсутствует обязательная переменная окружения:'
-                         '"PRACTICUM_TOKEN"'
-                         'Программа принудительно остановлена.')
+                        '"PRACTICUM_TOKEN"'
+                        'Программа принудительно остановлена.')
     if TELEGRAM_TOKEN is None:
         logger.critical('Отсутствует обязательная переменная окружения:'
-                         '"TELEGRAM_TOKEN"'
-                         'Программа принудительно остановлена.')
+                        '"TELEGRAM_TOKEN"'
+                        'Программа принудительно остановлена.')
     if TELEGRAM_CHAT_ID is None:
         logger.critical('Отсутствует обязательная переменная окружения:'
-                         '"TELEGRAM_CHAT_ID"'
-                         'Программа принудительно остановлена.')
+                        '"TELEGRAM_CHAT_ID"'
+                        'Программа принудительно остановлена.')
     return PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID
 
 
