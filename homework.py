@@ -1,10 +1,10 @@
 import logging
+import sys
 import os
 import time
 import requests
 
 from dotenv import load_dotenv
-from logging.handlers import StreamHandler
 
 import telegram
 
@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-handler = StreamHandler('my_logger.log', maxBytes=50000000, backupCount=5)
+handler = logging.StreamHandler(sys.stdout)
 logger.addHandler(handler)
 
 
