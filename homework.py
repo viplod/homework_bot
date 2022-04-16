@@ -12,20 +12,20 @@ load_dotenv()
 
 logging.basicConfig(
     level=logging.DEBUG,
-    filename='program.log',
     format='%(asctime)s, %(levelname)s, %(message)s'
 )
 
 logger = logging.getLogger(__name__)
-handler = logging.StreamHandler(sys.stdout)
-logger.addHandler(handler)
+handler_stdout = logging.StreamHandler(sys.stdout)
+logger.addHandler(handler_stdout)
+logger.setLevel(logging.INFO)
 
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_TIME = 600
+RETRY_TIME = 20
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
@@ -39,8 +39,11 @@ HOMEWORK_STATUSES = {
 
 def send_message(bot, message):
     """Отправка сообщения."""
-    bot.send_message(TELEGRAM_CHAT_ID, message)
-    logger.info('Сообщение отправлено в Telegram')
+    try:
+        bot.send_message(TELEGRAM_CHAT_ID, message)
+    except telegram.error.TelegramError as error:
+        logger.error('Сообщение не отправлено в Telegram', error)
+    logger.info('Сообщение отправлено в Telegram', message)
 
 
 def get_api_answer(current_timestamp):
@@ -51,38 +54,48 @@ def get_api_answer(current_timestamp):
     if response.status_code == 200:
         return response.json()
     else:
+        logger.error(
+            'Недоступен эндпоинт '
+            'https://practicum.yandex.ru/api/user_api/homework_statuses/ '
+            'статус ответа=', response.status_code)
         raise ValueError
 
 
 def check_response(response):
     """Проверка ответа сервера."""
     if not response:
-        logger.error('Отсутствие ожидаемых ключей в ответе API')
+        logger.error('Отсутствуют данные в ответе API')
         raise ValueError
     if isinstance(response, dict):
         homework = response.get('homeworks')
     else:
-        logger.error('Отсутствие ожидаемых ключей в ответе API')
+        logger.error('Неверные тип данных response в ответе API')
         raise TypeError
     if isinstance(homework, list):
         if response.get('homeworks') is not None:
             return response.get('homeworks')
         else:
-            logger.error('Отсутствие ожидаемых ключей в ответе API')
+            logger.error('Отсутствует ключ homeworks в ответе API')
             raise KeyError
     else:
-        logger.error('Отсутствие ожидаемых ключей в ответе API')
+        logger.error('Неверные тип данных ключа homeworks в ответе API')
         raise TypeError
 
 
 def parse_status(homework):
     """Парсинг статусов."""
     homework_name = homework.get('homework_name')
+    if homework_name is None:
+        logger.error('Отсутствие ожидаемый ключ homework_name в ответе API')
     homework_status = homework.get('status')
+    if homework_status is None:
+        logger.error('Отсутствие ожидаемый ключ status в ответе API')
     verdict = HOMEWORK_STATUSES.get(homework_status)
     if verdict is not None:
         return f'Изменился статус проверки работы "{homework_name}". {verdict}'
     else:
+        logger.error(f'Недокументированный статус домашней работы,'
+                     f'обнаруженный в ответе API, {homework_status}')
         raise KeyError
 
 
@@ -112,15 +125,15 @@ def main():
     while True:
         try:
             response = get_api_answer(current_timestamp)
-            print(response)
             current_timestamp = int(time.time())
             time.sleep(RETRY_TIME)
-
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             time.sleep(RETRY_TIME)
         else:
             homeworks = check_response(response)
+            if len(homeworks) == 0:
+                logger.debug('Отсутствие в ответе новых статусов')
             for homework in homeworks:
                 message = parse_status(homework)
                 send_message(bot, message)
