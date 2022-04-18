@@ -1,12 +1,12 @@
 import logging
 import sys
-import os
 import time
 import requests
 
 from dotenv import load_dotenv
-
 import telegram
+
+import config
 
 load_dotenv()
 
@@ -21,15 +21,6 @@ logger.addHandler(handler_stdout)
 logger.setLevel(logging.INFO)
 
 
-PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-
-RETRY_TIME = 600
-ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
-HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
-
-
 HOMEWORK_STATUSES = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
     'reviewing': 'Работа взята на проверку ревьюером.',
@@ -40,7 +31,7 @@ HOMEWORK_STATUSES = {
 def send_message(bot, message):
     """Отправка сообщения."""
     try:
-        bot.send_message(TELEGRAM_CHAT_ID, message)
+        bot.send_message(config.TELEGRAM_CHAT_ID, message)
     except telegram.error.TelegramError as error:
         logger.error('Сообщение не отправлено в Telegram', error)
     logger.info('Сообщение отправлено в Telegram', message)
@@ -50,7 +41,11 @@ def get_api_answer(current_timestamp):
     """Запрос данных с сервера."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
-    response = requests.get(ENDPOINT, headers=HEADERS, params=params)
+    response = requests.get(
+        config.ENDPOINT,
+        headers=config.HEADERS,
+        params=params
+    )
     if response.status_code == 200:
         return response.json()
     else:
@@ -101,24 +96,28 @@ def parse_status(homework):
 
 def check_tokens():
     """Проверка наличия токенов."""
-    if PRACTICUM_TOKEN is None:
+    if config.PRACTICUM_TOKEN is None:
         logger.critical('Отсутствует обязательная переменная окружения:'
                         '"PRACTICUM_TOKEN"'
                         'Программа принудительно остановлена.')
-    if TELEGRAM_TOKEN is None:
+    if config.TELEGRAM_TOKEN is None:
         logger.critical('Отсутствует обязательная переменная окружения:'
                         '"TELEGRAM_TOKEN"'
                         'Программа принудительно остановлена.')
-    if TELEGRAM_CHAT_ID is None:
+    if config.TELEGRAM_CHAT_ID is None:
         logger.critical('Отсутствует обязательная переменная окружения:'
                         '"TELEGRAM_CHAT_ID"'
                         'Программа принудительно остановлена.')
-    return PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID
+    return (
+        config.PRACTICUM_TOKEN
+        and config.TELEGRAM_TOKEN
+        and config.TELEGRAM_CHAT_ID
+    )
 
 
 def main():
     """Основная логика работы бота."""
-    bot = telegram.Bot(token=TELEGRAM_TOKEN)
+    bot = telegram.Bot(token=config.TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
     if not check_tokens():
         raise ValueError
@@ -126,10 +125,10 @@ def main():
         try:
             response = get_api_answer(current_timestamp)
             current_timestamp = int(time.time())
-            time.sleep(RETRY_TIME)
+            time.sleep(config.RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            time.sleep(RETRY_TIME)
+            time.sleep(config.RETRY_TIME)
         else:
             homeworks = check_response(response)
             if len(homeworks) == 0:
