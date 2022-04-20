@@ -6,8 +6,10 @@ from http import HTTPStatus
 import requests
 import telegram
 
-from config import (ENDPOINT, HEADERS, PRACTICUM_TOKEN, RETRY_TIME,
-                    TELEGRAM_CHAT_ID, TELEGRAM_TOKEN)
+from config import (ENDPOINT, HEADERS, HOMEWORK_STATUSES, PRACTICUM_TOKEN,
+                    RETRY_TIME, TELEGRAM_CHAT_ID, TELEGRAM_TOKEN)
+from exceptions import (EndpointResponseExceptionError,
+                        SendMessageExceptionError)
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -15,29 +17,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-if __name__ == '__main__':
-    handler_stdout = logging.StreamHandler(sys.stdout)
-    logger.addHandler(handler_stdout)
-    logger.setLevel(logging.INFO)
-
-
-HOMEWORK_STATUSES = {
-    'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
-    'reviewing': 'Работа взята на проверку ревьюером.',
-    'rejected': 'Работа проверена: у ревьюера есть замечания.'
-}
-
-
-class EndpointResponseExceptionError(Exception):
-    """Exception - эндпоинт недоступен."""
-
-    pass
-
-
-class SendMessageExceptionError(Exception):
-    """Exception - ошибка отправки сообщения."""
-
-    pass
 
 
 def send_message(bot, message):
@@ -46,7 +25,9 @@ def send_message(bot, message):
         bot.send_message(TELEGRAM_CHAT_ID, message)
     except telegram.error.TelegramError as error:
         logger.error('Сообщение не отправлено в Telegram', error)
-        raise SendMessageExceptionError
+        raise SendMessageExceptionError(
+            f'Ошибка отправки сообщения в Telegram {error}'
+        )
     logger.info('Сообщение отправлено в Telegram', message)
 
 
@@ -116,26 +97,30 @@ def main():
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
     if not check_tokens():
+        logger.critical('Отсутствует обязательная переменная окружения')
         sys.exit('Отсутствует обязательная переменная окружения')
-    try:
-        while True:
-            try:
-                response = get_api_answer(current_timestamp)
-            except Exception as error:
-                message = f'Сбой в работе программы: {error}'
-            else:
-                homeworks = check_response(response)
-                if len(homeworks) == 0:
-                    logger.debug('Отсутствие в ответе новых статусов')
-                for homework in homeworks:
-                    message = parse_status(homework)
-                    send_message(bot, message)
-                current_timestamp = response.get('current_date')
-            finally:
-                time.sleep(RETRY_TIME)
-    except KeyboardInterrupt:
-        sys.exit('Принудительное завершение работы программы')
+    while True:
+        try:
+            response = get_api_answer(current_timestamp)
+        except Exception as error:
+            message = f'Сбой в работе программы: {error}'
+        else:
+            homeworks = check_response(response)
+            if len(homeworks) == 0:
+                logger.debug('Отсутствие в ответе новых статусов')
+            for homework in homeworks:
+                message = parse_status(homework)
+                send_message(bot, message)
+            current_timestamp = response.get('current_date')
+        finally:
+            time.sleep(RETRY_TIME)
 
 
 if __name__ == '__main__':
-    main()
+    handler_stdout = logging.StreamHandler(sys.stdout)
+    logger.addHandler(handler_stdout)
+    logger.setLevel(logging.INFO)
+    try:
+        main()
+    except KeyboardInterrupt:
+        logger.critical('Принудительное завершение работы программы')
