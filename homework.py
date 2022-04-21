@@ -123,4 +123,4 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        logger.critical('Принудительное завершение работы программы')
+        logger.info('Принудительное завершение работы программы')
